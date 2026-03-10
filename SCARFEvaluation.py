@@ -16,6 +16,9 @@ from SCARFDataset import SCARFDataset
 from preprocessing import readData
 
 
+seed = 291
+L.seed_everything(seed, workers=True)
+
 
 # Load data
 trainSet = "UNSW_NB15/UNSW_NB15_training-set.parquet"
@@ -32,7 +35,7 @@ validation_loader = torch.utils.data.DataLoader(validation_dataset, batch_size=b
 test_loader = torch.utils.data.DataLoader(test_dataset, batch_size=batch_size, shuffle=False)
 
 # Load model
-saved_checkpoint = SCARFLightning.load_from_checkpoint("checkpoints/SCARF-epoch=74-step=92475.ckpt", in_dim = train_dataset.shape[1], hidden_dim = 256, num_hidden = 4, head_hidden_dim = 256, head_num_hidden = 2, dropout = 0, corruption_rate = 0.3)
+saved_checkpoint = SCARFLightning.load_from_checkpoint("lightning_logs/version_29/checkpoints/epoch=99-step=61700.ckpt", in_dim = train_dataset.shape[1], hidden_dim = 256, num_hidden = 4, head_hidden_dim = 256, head_num_hidden = 2, dropout = 0, corruption_rate = 0.2)
 saved_checkpoint.freeze()
 
 # Classification on top of the embeddings
@@ -53,10 +56,10 @@ doitsmall = True
 
 if doitsmall:
     label_proportion = 0.01
-    train_embeddings,_ , train_labels, _ = train_test_split(train_embeddings, train_labels, test_size=1-label_proportion, random_state=1492) 
+    train_embeddings,_ , train_labels, _ = train_test_split(train_embeddings, train_labels, test_size=1-label_proportion, random_state=seed) 
 
     label_proportion = 0.01
-    validation_embeddings,_ , validation_labels, _ = train_test_split(validation_embeddings, validation_labels, test_size=1-label_proportion, random_state=1492) 
+    validation_embeddings,_ , validation_labels, _ = train_test_split(validation_embeddings, validation_labels, test_size=1-label_proportion, random_state=seed) 
 
 
 print("Training set: ", train_embeddings.shape, train_labels.shape)
@@ -69,31 +72,31 @@ test_dataset_embeddings = torch.utils.data.TensorDataset(test_embeddings, test_l
 
 train_dataloader_embeddings = torch.utils.data.DataLoader(
     train_dataset_embeddings,
-    batch_size=128,
+    batch_size=16,
     shuffle=True,
     num_workers=0
 )
 
 validation_dataloader_embeddings = torch.utils.data.DataLoader(
     validation_dataset_embeddings,
-    batch_size=128,
+    batch_size=16,
     shuffle=False,
     num_workers=0
 )
 
 test_dataloader_embeddings = torch.utils.data.DataLoader(
     test_dataset_embeddings,
-    batch_size=1,
+    batch_size=16,
     shuffle=False,
     num_workers=0
 )
 
 # MLP CLASSIFICATION ON TOP OF EMBEDDINGS
-classification_head = ClassificationHead(dropout=0.0)
+classification_head = ClassificationHead(dropout=0.3)
 
 #early_stopping_callback = EarlyStopping(monitor="cl_validation_loss", patience=3)
 #trainer = L.Trainer(max_epochs=200, accelerator='gpu', logger=True, enable_progress_bar=True, callbacks=[early_stopping_callback])
-trainer = L.Trainer(max_epochs=50, accelerator='gpu', logger=True, enable_progress_bar=True)
+trainer = L.Trainer(max_epochs=100, accelerator='gpu', logger=True, enable_progress_bar=True)
 trainer.fit(classification_head, train_dataloader_embeddings, validation_dataloader_embeddings)
 
 print("\n\nTEST CLASSIFICATION HEAD")
@@ -101,7 +104,7 @@ trainer.test(classification_head, test_dataloader_embeddings)
 print("\n\n")
 
 # XGBOOST CLASSIFICATION ON TOP OF EMBEDDINGS
-xgb = XGBClassifier(n_estimators=100, learning_rate=0.1, max_depth=6, random_state=1492)
+xgb = XGBClassifier(n_estimators=100, learning_rate=0.1, max_depth=6, random_state=seed)
 xgb.fit(train_embeddings, train_labels)
 
 y_pred_xgb = xgb.predict(test_embeddings)
@@ -109,7 +112,7 @@ print("\n\n---------- XGBoost Classification Report ----------")
 print(classification_report(test_labels, y_pred_xgb))
 
 # Random Forest CLASSIFICATION ON TOP OF EMBEDDINGS
-rf = RandomForestClassifier(n_estimators=100, random_state=1492)
+rf = RandomForestClassifier(n_estimators=100, random_state=seed)
 rf.fit(train_embeddings, train_labels)
 
 y_pred_rf = rf.predict(test_embeddings)

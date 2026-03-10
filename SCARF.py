@@ -21,6 +21,10 @@ from supervisedClassifier import ClassificationHead
 
 from preprocessing import readData
 
+
+seed = 25
+L.seed_everything(seed, workers=True)
+
 class Encoder(nn.Module):
 
     def __init__(self, in_dim, hidden_dim, num_hidden, dropout = 0.0):
@@ -39,6 +43,7 @@ class Encoder(nn.Module):
 
             # Add relu
             layers.append(nn.ReLU(inplace=True))
+            #layers.append(nn.GELU())
 
             # Add dropout
             layers.append(nn.Dropout(dropout))
@@ -178,7 +183,7 @@ if __name__ == "__main__":
 
 
     # TRAINING
-    batch_size = 128
+    batch_size = 256
 
     train_loader = torch.utils.data.DataLoader(train_dataset, batch_size=batch_size, shuffle=True)
     validation_loader = torch.utils.data.DataLoader(validation_dataset, batch_size=batch_size, shuffle=False)
@@ -188,10 +193,10 @@ if __name__ == "__main__":
     model = SCARFLightning(in_dim = train_dataset.shape[1], 
                         hidden_dim = 256, 
                         num_hidden = 4, 
-                        head_hidden_dim = 256, 
+                        head_hidden_dim = 256,  # 256 
                         head_num_hidden = 2, 
                         dropout = 0, 
-                        corruption_rate = 0.3)
+                        corruption_rate = 0.2)
 
 
     print(model)
@@ -200,7 +205,7 @@ if __name__ == "__main__":
     # Create trainer and fit
     
     #early_stopping_callback = EarlyStopping(monitor="validation_loss", patience=3, mode="min")
-    trainer = L.Trainer(max_epochs=75, accelerator='gpu', logger=True, enable_progress_bar=True) #callbacks=[early_stopping_callback])
+    trainer = L.Trainer(max_epochs=100, accelerator='gpu', logger=True, enable_progress_bar=True) #callbacks=[early_stopping_callback])
     trainer.fit(model, train_loader, validation_loader)
 
 
