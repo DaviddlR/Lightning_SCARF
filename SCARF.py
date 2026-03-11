@@ -90,8 +90,9 @@ class SCARFLightning(L.LightningModule):
         #self.learning_rate = 1e-3
         self.learning_rate = 5e-4
         self.weight_decay = 1e-5
-        self.loss = nt_xent_loss(temperature=0.4)
 
+        self.ir_weight = 100
+        self.loss = nt_xent_loss(temperature=0.4)
         self.ir_loss = nn.MSELoss()
 
         # Uniform distribution over marginal distribution
@@ -141,8 +142,9 @@ class SCARFLightning(L.LightningModule):
         # Reconstruction branch
         x_reconstructed = self.decoder(embeddings_corrupted)
         loss_reconstruction = self.ir_loss(x_reconstructed, x)
+        loss_reconstruction = self.ir_weight * loss_reconstruction
 
-        total_loss = loss_contrastive + 10*loss_reconstruction
+        total_loss = loss_contrastive + loss_reconstruction
 
         # Log
         self.log('CL_loss', loss_contrastive, on_step=False, on_epoch=True, prog_bar=True, logger=True)
@@ -179,14 +181,20 @@ class SCARFLightning(L.LightningModule):
         # Reconstruction branch
         x_reconstructed = self.decoder(embeddings_corrupted)
         loss_reconstruction = self.ir_loss(x_reconstructed, x)
+        loss_reconstruction = self.ir_weight * loss_reconstruction
 
-        total_loss = loss_contrastive + 10*loss_reconstruction
+        total_loss = loss_contrastive + loss_reconstruction
 
         # Log
+        self.log('CL_validation_loss', loss_contrastive, on_step=False, on_epoch=True, prog_bar=True, logger=True)
+        self.log('IR_validation_loss', loss_reconstruction, on_step=False, on_epoch=True, prog_bar=True, logger=True)
         self.log('validation_loss', total_loss, on_step=False, on_epoch=True, prog_bar=True, logger=True)
 
         # Return loss
         return total_loss
+    
+
+    
 
 
     def configure_optimizers(self):

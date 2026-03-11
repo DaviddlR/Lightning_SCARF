@@ -3,6 +3,7 @@
 from torch import nn
 import lightning as L
 import torch
+from torch.nn import functional as F
 
 from sklearn.ensemble import RandomForestClassifier
 from xgboost import XGBClassifier
@@ -11,12 +12,16 @@ from lightning.pytorch.callbacks import EarlyStopping
 
 from sklearn.model_selection import train_test_split
 
+from sklearn.metrics import roc_curve, auc, roc_auc_score
+from sklearn.preprocessing import label_binarize
+
 
 from preprocessing import readData
+from loss import FocalLoss
 
 
 
-seed = 24
+seed = 26
 L.seed_everything(seed, workers=True)
 
 
@@ -56,8 +61,10 @@ class ClassificationHead(L.LightningModule):
 
         self.learning_rate = 1e-4
         self.weight_decay = 1e-5
-        
-        self.loss = nn.CrossEntropyLoss()
+        weights = torch.tensor([15.0, 15.0, 2.0, 1.0, 1.0, 0.5, 1.5, 1.5, 5.0, 15.0])
+        self.loss = FocalLoss(alpha=weights.to(self.device), gamma=2.0, reduction='mean')  # Focal loss
+        #self.loss = nn.CrossEntropyLoss(weight=weights.to(self.device))  # Cross-entropy loss with class weights
+        #self.loss = nn.CrossEntropyLoss()  # Cross-entropy 
 
     
     def forward(self, x):
@@ -104,6 +111,19 @@ class ClassificationHead(L.LightningModule):
 
         return loss
     
+    def predict_step(self, batch, batch_index):
+        x, y = batch
+
+        y_hat = self(x)
+
+        predictions = y_hat.argmax(dim=1)
+        probs = F.softmax(y_hat, dim=1)
+
+        return {
+            "preds": predictions,
+            "probs": probs
+        }
+    
     def configure_optimizers(self):
         optimizer = torch.optim.Adam(self.parameters(), lr = self.learning_rate, weight_decay=self.weight_decay)
 
@@ -131,6 +151,18 @@ def trainRF(x_train_processed, y_train, x_test_processed, y_test):
     print(classification_report(y_test, y_pred_rf))
 
 
+def printAUC(y_true, y_probs, num_classes):
+    y_true_bin = label_binarize(y_true, classes=range(num_classes))
+    
+    fpr = dict()
+    tpr = dict()
+    roc_auc = dict()
+
+    for i in range(num_classes):
+        fpr[i], tpr[i], _ = roc_curve(y_true_bin[:, i], y_probs[:, i])
+        roc_auc[i] = auc(fpr[i], tpr[i])
+
+    return roc_auc
 
 
 
@@ -197,7 +229,14 @@ if __name__ == "__main__":
     trainer.fit(model, train_dataloader_embeddings, validation_dataloader_embeddings)
 
     print("\n\n MLP")
-    trainer.test(model, test_dataloader_embeddings)
+
+    outputs = trainer.predict(model, test_dataloader_embeddings)
+    predictions = torch.cat([o["preds"] for o in outputs])
+    probs = torch.cat([o["probs"] for o in outputs])
+
+    y_pred_CLHead = predictions.cpu().numpy()
+    print(classification_report(y_test, y_pred_CLHead))
+    print(printAUC(y_test, torch.tensor(probs).cpu().numpy(), num_classes=10))
 
     model = trainXGB(x_train_small, y_train_small, x_test_processed, y_test)
 

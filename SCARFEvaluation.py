@@ -11,13 +11,32 @@ from sklearn.model_selection import train_test_split
 
 import torch
 
+from sklearn.metrics import roc_curve, auc, roc_auc_score
+from sklearn.preprocessing import label_binarize
+
 from SCARF import SCARFLightning
 from SCARFDataset import SCARFDataset
 from preprocessing import readData
 
 
-seed = 291
+seed = 93
 L.seed_everything(seed, workers=True)
+
+
+
+def printAUC(y_true, y_probs, num_classes):
+    y_true_bin = label_binarize(y_true, classes=range(num_classes))
+    
+    fpr = dict()
+    tpr = dict()
+    roc_auc = dict()
+
+    for i in range(num_classes):
+        fpr[i], tpr[i], _ = roc_curve(y_true_bin[:, i], y_probs[:, i])
+        roc_auc[i] = auc(fpr[i], tpr[i])
+
+    return roc_auc
+
 
 
 # Load data
@@ -35,7 +54,7 @@ validation_loader = torch.utils.data.DataLoader(validation_dataset, batch_size=b
 test_loader = torch.utils.data.DataLoader(test_dataset, batch_size=batch_size, shuffle=False)
 
 # Load model
-saved_checkpoint = SCARFLightning.load_from_checkpoint("lightning_logs/version_29/checkpoints/epoch=99-step=61700.ckpt", in_dim = train_dataset.shape[1], hidden_dim = 256, num_hidden = 4, head_hidden_dim = 256, head_num_hidden = 2, dropout = 0, corruption_rate = 0.2)
+saved_checkpoint = SCARFLightning.load_from_checkpoint("checkpoints/CL_IR_epoch=99-step=61700.ckpt", in_dim = train_dataset.shape[1], hidden_dim = 256, num_hidden = 4, head_hidden_dim = 256, head_num_hidden = 2, dropout = 0, corruption_rate = 0.2)
 saved_checkpoint.freeze()
 
 # Classification on top of the embeddings
@@ -56,10 +75,10 @@ doitsmall = True
 
 if doitsmall:
     label_proportion = 0.01
-    train_embeddings,_ , train_labels, _ = train_test_split(train_embeddings, train_labels, test_size=1-label_proportion, random_state=seed) 
+    train_embeddings,_ , train_labels, _ = train_test_split(train_embeddings, train_labels, test_size=1-label_proportion, random_state=seed, stratify=train_labels) 
 
     label_proportion = 0.01
-    validation_embeddings,_ , validation_labels, _ = train_test_split(validation_embeddings, validation_labels, test_size=1-label_proportion, random_state=seed) 
+    validation_embeddings,_ , validation_labels, _ = train_test_split(validation_embeddings, validation_labels, test_size=1-label_proportion, random_state=seed, stratify=validation_labels) 
 
 
 print("Training set: ", train_embeddings.shape, train_labels.shape)
@@ -72,35 +91,43 @@ test_dataset_embeddings = torch.utils.data.TensorDataset(test_embeddings, test_l
 
 train_dataloader_embeddings = torch.utils.data.DataLoader(
     train_dataset_embeddings,
-    batch_size=16,
+    batch_size=32,
     shuffle=True,
     num_workers=0
 )
 
 validation_dataloader_embeddings = torch.utils.data.DataLoader(
     validation_dataset_embeddings,
-    batch_size=16,
+    batch_size=32,
     shuffle=False,
     num_workers=0
 )
 
 test_dataloader_embeddings = torch.utils.data.DataLoader(
     test_dataset_embeddings,
-    batch_size=16,
+    batch_size=32,
     shuffle=False,
     num_workers=0
 )
 
 # MLP CLASSIFICATION ON TOP OF EMBEDDINGS
-classification_head = ClassificationHead(dropout=0.3)
+classification_head = ClassificationHead(dropout=0.2)
 
 #early_stopping_callback = EarlyStopping(monitor="cl_validation_loss", patience=3)
 #trainer = L.Trainer(max_epochs=200, accelerator='gpu', logger=True, enable_progress_bar=True, callbacks=[early_stopping_callback])
-trainer = L.Trainer(max_epochs=100, accelerator='gpu', logger=True, enable_progress_bar=True)
+trainer = L.Trainer(max_epochs=70, accelerator='gpu', logger=True, enable_progress_bar=True)
 trainer.fit(classification_head, train_dataloader_embeddings, validation_dataloader_embeddings)
 
 print("\n\nTEST CLASSIFICATION HEAD")
-trainer.test(classification_head, test_dataloader_embeddings)
+#trainer.test(classification_head, test_dataloader_embeddings)
+outputs = trainer.predict(classification_head, test_dataloader_embeddings)
+predictions = torch.cat([o["preds"] for o in outputs])
+probs = torch.cat([o["probs"] for o in outputs])
+
+y_pred_CLHead = predictions.cpu().numpy()
+print(classification_report(y_test, y_pred_CLHead))
+print(printAUC(y_test, torch.tensor(probs).cpu().numpy(), num_classes=10))
+
 print("\n\n")
 
 # XGBOOST CLASSIFICATION ON TOP OF EMBEDDINGS
