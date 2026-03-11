@@ -74,8 +74,15 @@ class SCARFLightning(L.LightningModule):
         self.main_encoder = Encoder(in_dim, hidden_dim, num_hidden, dropout)
         self.pretraining_head = Encoder(hidden_dim, head_hidden_dim, head_num_hidden, dropout)
 
+        self.decoder = nn.Sequential(
+            nn.Linear(hidden_dim, hidden_dim),
+            nn.ReLU(),
+            nn.Linear(hidden_dim, in_dim)
+        )
+
         print(self.main_encoder)
         print(self.pretraining_head)
+        print(self.decoder)
 
 
         # Set corruption rate, learning rate, and loss
@@ -85,12 +92,14 @@ class SCARFLightning(L.LightningModule):
         self.weight_decay = 1e-5
         self.loss = nt_xent_loss(temperature=0.4)
 
+        self.ir_loss = nn.MSELoss()
+
         # Uniform distribution over marginal distribution
         #self.marginals = Uniform(torch.Tensor(features_low), torch.Tensor(features_high))
 
 
 
-    # Forward during training
+    # Forward during inference
     def forward(self, x):
         
         x = self.main_encoder(x)
@@ -118,6 +127,7 @@ class SCARFLightning(L.LightningModule):
         #x_random = self.marginals.sample(torch.Size((batch_size, ))).to(x.device) # Sample random values from the marginal distribution for each feature and each sample in the batch
         x_corrupted = torch.where(condition=mask, input=x_random, other=x)  # If mask is True, use random value, else use original value
 
+
         # Get latent representation of both the original embedding and the corrupted one
         embeddings = self.main_encoder(x)
         embeddings = self.pretraining_head(embeddings)
@@ -125,14 +135,22 @@ class SCARFLightning(L.LightningModule):
         embeddings_corrupted = self.main_encoder(x_corrupted)
         embeddings_corrupted = self.pretraining_head(embeddings_corrupted)
 
-        # Compute loss
-        loss = self.loss(embeddings, embeddings_corrupted)
+        # Compute contrastive loss
+        loss_contrastive = self.loss(embeddings, embeddings_corrupted)
+
+        # Reconstruction branch
+        x_reconstructed = self.decoder(embeddings_corrupted)
+        loss_reconstruction = self.ir_loss(x_reconstructed, x)
+
+        total_loss = loss_contrastive + 10*loss_reconstruction
 
         # Log
-        self.log('train_loss', loss, on_step=False, on_epoch=True, prog_bar=True, logger=True)
+        self.log('CL_loss', loss_contrastive, on_step=False, on_epoch=True, prog_bar=True, logger=True)
+        self.log('IR_loss', loss_reconstruction, on_step=False, on_epoch=True, prog_bar=True, logger=True)
+        self.log('train_loss', total_loss, on_step=False, on_epoch=True, prog_bar=True, logger=True)
 
         # Return loss
-        return loss
+        return total_loss
     
 
     def validation_step(self, batch, batch_index):
@@ -155,14 +173,20 @@ class SCARFLightning(L.LightningModule):
         embeddings_corrupted = self.main_encoder(x_corrupted)
         embeddings_corrupted = self.pretraining_head(embeddings_corrupted)
 
-        # Compute loss
-        loss = self.loss(embeddings, embeddings_corrupted)
+        # Compute contrastive loss
+        loss_contrastive = self.loss(embeddings, embeddings_corrupted)
+
+        # Reconstruction branch
+        x_reconstructed = self.decoder(embeddings_corrupted)
+        loss_reconstruction = self.ir_loss(x_reconstructed, x)
+
+        total_loss = loss_contrastive + 10*loss_reconstruction
 
         # Log
-        self.log('validation_loss', loss, on_step=False, on_epoch=True, prog_bar=True, logger=True)
+        self.log('validation_loss', total_loss, on_step=False, on_epoch=True, prog_bar=True, logger=True)
 
         # Return loss
-        return loss
+        return total_loss
 
 
     def configure_optimizers(self):
