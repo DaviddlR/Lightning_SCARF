@@ -19,6 +19,8 @@ from sklearn.preprocessing import label_binarize
 from preprocessing import readData
 from loss import FocalLoss
 
+import numpy as np
+
 
 
 seed = 26
@@ -131,26 +133,6 @@ class ClassificationHead(L.LightningModule):
 
 
 
-def trainXGB(x_train_processed, y_train, x_test_processed, y_test):
-    xgb = XGBClassifier(n_estimators=100, learning_rate=0.1, max_depth=6, random_state=seed)
-    xgb.fit(x_train_processed, y_train)
-
-    y_pred_xgb = xgb.predict(x_test_processed)
-    print("\n\n---------- XGBoost Classification Report ----------")
-    print(classification_report(y_test, y_pred_xgb))
-
-
-
-
-def trainRF(x_train_processed, y_train, x_test_processed, y_test):
-    rf = RandomForestClassifier(n_estimators=100, random_state=seed)
-    rf.fit(x_train_processed, y_train)
-
-    y_pred_rf = rf.predict(x_test_processed)
-    print("\n\n---------- Random Forest Classification Report ----------")
-    print(classification_report(y_test, y_pred_rf))
-
-
 def printAUC(y_true, y_probs, num_classes):
     y_true_bin = label_binarize(y_true, classes=range(num_classes))
     
@@ -166,81 +148,308 @@ def printAUC(y_true, y_probs, num_classes):
 
 
 
+def trainXGB(x_train_processed, y_train, x_test_processed, y_test):
+    xgb = XGBClassifier(n_estimators=100, learning_rate=0.1, max_depth=6, random_state=seed)
+    xgb.fit(x_train_processed, y_train)
+
+    y_pred_xgb = xgb.predict(x_test_processed)
+    probs = xgb.predict_proba(x_test_processed)
+
+    report = classification_report(y_test, y_pred_xgb, output_dict=True)
+    print(report)
+    auc = printAUC(y_test, probs, num_classes=10)
+
+    return report, auc
+
+
+
+
+def trainRF(x_train_processed, y_train, x_test_processed, y_test):
+    rf = RandomForestClassifier(n_estimators=100, random_state=seed)
+    rf.fit(x_train_processed, y_train)
+
+    y_pred_rf = rf.predict(x_test_processed)
+    probs = rf.predict_proba(x_test_processed)
+
+    report = classification_report(y_test, y_pred_rf, output_dict=True)
+    auc = printAUC(y_test, probs, num_classes=10)
+
+    return report, auc
+
+
+
+
 if __name__ == "__main__":
-    
+
+    # MLP scores
+    precisions = dict()
+    recalls = dict()
+    f1scores = dict()
+    accuracies = list()
+    macroavgs = list()
+    weightedavgs = list()
+    aucscores = dict()
+
+    for i in range(10):
+        precisions[i] = list()
+        recalls[i] = list()
+        f1scores[i] = list()
+        aucscores[i] = list()
+
+    # RF scores
+    RF_precisions = dict()
+    RF_recalls = dict()
+    RF_f1scores = dict()
+    RF_accuracies = list()
+    RF_macroavgs = list()
+    RF_weightedavgs = list()
+    RF_aucscores = dict()
+
+    for i in range (10):
+        RF_precisions[i] = list()
+        RF_recalls[i] = list()
+        RF_f1scores[i] = list()
+        RF_aucscores[i] = list()
+
+    # XGB scores
+    XGB_precisions = dict()
+    XGB_recalls = dict()
+    XGB_f1scores = dict()
+    XGB_accuracies = list()
+    XGB_macroavgs = list()
+    XGB_weightedavgs = list()
+    XGB_aucscores = dict()
+
+    for i in range (10):
+        XGB_precisions[i] = list()
+        XGB_recalls[i] = list()
+        XGB_f1scores[i] = list()
+        XGB_aucscores[i] = list()
+
+
+
     trainSet = "UNSW_NB15/UNSW_NB15_training-set.parquet"
     testSet = "UNSW_NB15/UNSW_NB15_testing-set.parquet"
     x_train_processed, y_train, x_val_processed, y_val, x_test_processed, y_test = readData(trainSet, testSet)
 
+    # 30 different seeds
+    # seeds = [26]
+    seeds = [1,2,3,4,5]
+    #seeds = [26, 42, 123, 2024, 999, 2023, 2022, 2021, 2020, 2019, 2018, 2017, 2016, 2015, 2014, 2013, 2012, 2011, 2010, 2009, 72, 71, 70, 69, 68, 67, 66, 65, 64, 63]
+    for index, seed in enumerate(seeds):
+        L.seed_everything(seed, workers=True)
+        
+        
 
 
 
-    label_proportion = 0.01
-    x_train_small,_ , y_train_small, _ = train_test_split(x_train_processed, y_train, test_size=1-label_proportion, random_state=seed) 
-    print("Small training set: ", x_train_small.shape, y_train_small.shape)
 
-    label_proportion = 0.01
-    x_val_small,_ , y_val_small, _ = train_test_split(x_val_processed, y_val, test_size=1-label_proportion, random_state=seed) 
-    print("Small validation set: ", x_val_small.shape, y_val_small.shape)
+        label_proportion = 0.01
+        x_train_small,_ , y_train_small, _ = train_test_split(x_train_processed, y_train, test_size=1-label_proportion, random_state=seed, stratify=y_train) 
+        print("Small training set: ", x_train_small.shape, y_train_small.shape)
 
-    classifierType = "RF"
+        label_proportion = 0.01
+        x_val_small,_ , y_val_small, _ = train_test_split(x_val_processed, y_val, test_size=1-label_proportion, random_state=seed, stratify=y_val) 
+        print("Small validation set: ", x_val_small.shape, y_val_small.shape)
 
-
-
-    x_train_small = torch.tensor(x_train_small, dtype=torch.float32)
-    y_train_small = torch.tensor(y_train_small, dtype=torch.long)
-
-    x_val_small = torch.tensor(x_val_small, dtype=torch.float32)
-    y_val_small = torch.tensor(y_val_small, dtype=torch.long)
-
-    x_test_processed = torch.tensor(x_test_processed, dtype=torch.float32)
-    y_test = torch.tensor(y_test, dtype=torch.long)
-
-    train_dataset_embeddings = torch.utils.data.TensorDataset(x_train_small, y_train_small)
-    validation_dataset_embeddings = torch.utils.data.TensorDataset(x_val_small, y_val_small)
-    test_dataset_embeddings = torch.utils.data.TensorDataset(x_test_processed, y_test)
-
-    train_dataloader_embeddings = torch.utils.data.DataLoader(
-        train_dataset_embeddings,
-        batch_size=32,
-        shuffle=True,
-        num_workers=0
-    )
-
-    validation_dataloader_embeddings = torch.utils.data.DataLoader(
-        validation_dataset_embeddings,
-        batch_size=32,
-        shuffle=True,
-        num_workers=0
-    )
-
-    test_dataloader_embeddings = torch.utils.data.DataLoader(
-        test_dataset_embeddings,
-        batch_size=32,
-        shuffle=False,
-        num_workers=0
-    )
+        classifierType = "RF"
 
 
-    model = ClassificationHead(input_dim=186, dropout=0.0)
 
-    #early_stopping_callback = EarlyStopping(monitor="cl_validation_loss", patience=3)
-    trainer = L.Trainer(max_epochs=30, accelerator='gpu', logger=True, enable_progress_bar=True) #, callbacks=[early_stopping_callback])
-    trainer.fit(model, train_dataloader_embeddings, validation_dataloader_embeddings)
+        x_train_small = torch.tensor(x_train_small, dtype=torch.float32)
+        y_train_small = torch.tensor(y_train_small, dtype=torch.long)
 
-    print("\n\n MLP")
+        x_val_small = torch.tensor(x_val_small, dtype=torch.float32)
+        y_val_small = torch.tensor(y_val_small, dtype=torch.long)
 
-    outputs = trainer.predict(model, test_dataloader_embeddings)
-    predictions = torch.cat([o["preds"] for o in outputs])
-    probs = torch.cat([o["probs"] for o in outputs])
+        x_test_processed = torch.tensor(x_test_processed, dtype=torch.float32)
+        y_test = torch.tensor(y_test, dtype=torch.long)
 
-    y_pred_CLHead = predictions.cpu().numpy()
-    print(classification_report(y_test, y_pred_CLHead))
-    print(printAUC(y_test, torch.tensor(probs).cpu().numpy(), num_classes=10))
+        train_dataset_embeddings = torch.utils.data.TensorDataset(x_train_small, y_train_small)
+        validation_dataset_embeddings = torch.utils.data.TensorDataset(x_val_small, y_val_small)
+        test_dataset_embeddings = torch.utils.data.TensorDataset(x_test_processed, y_test)
 
-    model = trainXGB(x_train_small, y_train_small, x_test_processed, y_test)
+        train_dataloader_embeddings = torch.utils.data.DataLoader(
+            train_dataset_embeddings,
+            batch_size=32,
+            shuffle=True,
+            num_workers=0
+        )
 
-    model = trainRF(x_train_small, y_train_small, x_test_processed, y_test)
+        validation_dataloader_embeddings = torch.utils.data.DataLoader(
+            validation_dataset_embeddings,
+            batch_size=32,
+            shuffle=True,
+            num_workers=0
+        )
+
+        test_dataloader_embeddings = torch.utils.data.DataLoader(
+            test_dataset_embeddings,
+            batch_size=32,
+            shuffle=False,
+            num_workers=0
+        )
+
+
+        model = ClassificationHead(input_dim=186, dropout=0.0)
+
+        #early_stopping_callback = EarlyStopping(monitor="cl_validation_loss", patience=3)
+        trainer = L.Trainer(max_epochs=30, accelerator='gpu', logger=True, enable_progress_bar=True) #, callbacks=[early_stopping_callback])
+        trainer.fit(model, train_dataloader_embeddings, validation_dataloader_embeddings)
+
+
+        classes = [0,1,2,3,4,5,6,7,8,9]
+        #print("\n\n MLP")
+
+        outputs = trainer.predict(model, test_dataloader_embeddings)
+        predictions = torch.cat([o["preds"] for o in outputs])
+        probs = torch.cat([o["probs"] for o in outputs])
+
+        y_pred_CLHead = predictions.cpu().numpy()
+        MLPReport = classification_report(y_test, y_pred_CLHead, output_dict=True)
+        # Print f1 score of class 1 from the calssification report
+
+        MLPauc = printAUC(y_test, torch.tensor(probs).cpu().numpy(), num_classes=10)
+
+        #print(MLPReport)
+        #print(classification_report(y_test, y_pred_CLHead))
+        #print(MLPauc)
+
+        # Store MLP results
+        for i in range(10):
+            precisions[i].append(MLPReport[str(i)]['precision'])
+            recalls[i].append(MLPReport[str(i)]['recall'])
+            f1scores[i].append(MLPReport[str(i)]['f1-score'])
+            aucscores[i].append(MLPauc[i])
+
+        accuracies.append(MLPReport['accuracy'])
+        macroavgs.append(MLPReport['macro avg']['f1-score'])
+        weightedavgs.append(MLPReport['weighted avg']['f1-score'])
+
+        # print(precisions)
+        # print(recalls)
+        # print(f1scores)
+        # print(aucscores)
+
+
+        
+
+        XGBReport, XGBauc = trainXGB(x_train_small, y_train_small, x_test_processed, y_test)
+
+        #print(XGBReport, XGBauc)
+
+        # Store XGB results
+        for i in range(10):
+            XGB_precisions[i].append(XGBReport[str(i)]['precision'])
+            XGB_recalls[i].append(XGBReport[str(i)]['recall'])
+            XGB_f1scores[i].append(XGBReport[str(i)]['f1-score'])
+            XGB_aucscores[i].append(XGBauc[i])
+
+        XGB_accuracies.append(XGBReport['accuracy'])
+        XGB_macroavgs.append(XGBReport['macro avg']['f1-score'])
+        XGB_weightedavgs.append(XGBReport['weighted avg']['f1-score'])
+
+
+
+
+        RFReport, RFauc = trainRF(x_train_small, y_train_small, x_test_processed, y_test)
+
+        #print(RFReport, RFauc)
+
+        for i in range(10):
+            RF_precisions[i].append(RFReport[str(i)]['precision'])
+            RF_recalls[i].append(RFReport[str(i)]['recall'])
+            RF_f1scores[i].append(RFReport[str(i)]['f1-score'])
+            RF_aucscores[i].append(RFauc[i])
+
+        RF_accuracies.append(RFReport['accuracy'])
+        RF_macroavgs.append(RFReport['macro avg']['f1-score'])
+        RF_weightedavgs.append(RFReport['weighted avg']['f1-score'])
+
+
+
+
+
+    # Obtenemos intervalos de confianza
+
+    # MLP IC
+
+    print("\n\nMLP results:")
+
+    for i in range(10):
+        print("Class ", i)
+        ci_precision = np.percentile(precisions[i], [2.5, 97.5])
+        ci_recall = np.percentile(recalls[i], [2.5, 97.5])
+        ci_f1score = np.percentile(f1scores[i], [2.5, 97.5])
+        ci_auc = np.percentile(aucscores[i], [2.5, 97.5])
+
+        mean_precision = np.mean(precisions[i])
+        mean_recall = np.mean(recalls[i])
+        mean_f1score = np.mean(f1scores[i])
+        mean_auc = np.mean(aucscores[i])
+
+        print("Precision: ", mean_precision, " CI: ", ci_precision)
+        print("Recall: ", mean_recall, " CI: ", ci_recall)
+        print("F1-score: ", mean_f1score, " CI: ", ci_f1score)
+        print("AUC: ", mean_auc, " CI: ", ci_auc)
+
+    ci_accuracy = np.percentile(accuracies, [2.5, 97.5])
+    ci_macroavg = np.percentile(macroavgs, [2.5, 97.5])
+    ci_weightedavg = np.percentile(weightedavgs, [2.5, 97.5])
+    mean_accuracy = np.mean(accuracies)
+    mean_macroavg = np.mean(macroavgs)
+    mean_weightedavg = np.mean(weightedavgs)
+
+
+    print("\n")
+    print("Accuracy: ", mean_accuracy, " CI: ", ci_accuracy)
+    print("Macro avg F1-score: ", mean_macroavg, " CI: ", ci_macroavg)
+    print("Weighted avg F1-score: ", mean_weightedavg, " CI: ", ci_weightedavg)
+
+
+    # TODO: hacer lo mismo para RF y XGB. Hacer lo mismo con modelos entrenados sobre latent features
+        
+        
+
+
+
+
+
+
+    
+
+
+        # # Store values in the corresponding lists and dictionaries for each model
+        # for i in range(10):
+        #     precisions[i].append(MLPReport[str(i)]['precision'])
+        #     recalls[i].append(MLPReport[str(i)]['recall'])
+        #     f1scores[i].append(MLPReport[str(i)]['f1-score'])
+
+        #     RF_precisions[i].append(RFReport[str(i)]['precision'])
+        #     RF_recalls[i].append(RFReport[str(i)]['recall'])
+        #     RF_f1scores[i].append(RFReport[str(i)]['f1-score'])
+
+        #     XGB_precisions[i].append(XGBReport[str(i)]['precision'])
+        #     XGB_recalls[i].append(XGBReport[str(i)]['recall'])
+        #     XGB_f1scores[i].append(XGBReport[str(i)]['f1-score'])
+
+        # accuracies.append(MLPReport['accuracy'])
+        # RF_accuracies.append(RFReport['accuracy'])
+        # XGB_accuracies.append(XGBReport['accuracy'])
+
+        # macroavgs.append(MLPReport['macro avg']['f1-score'])
+        # RF_macroavgs.append(RFReport['macro avg']['f1-score'])
+        # XGB_macroavgs.append(XGBReport['macro avg']['f1-score'])
+
+        # weightedavgs.append(MLPReport['weighted avg']['f1-score'])
+        # RF_weightedavgs.append(RFReport['weighted avg']['f1-score'])
+        # XGB_weightedavgs.append(XGBReport['weighted avg']['f1-score'])
+
+        # aucscores.append(MLPauc)
+        # RF_aucscores.append(RFauc)
+        # XGB_aucscores.append(XGBauc)
+
+        
 
 
 
