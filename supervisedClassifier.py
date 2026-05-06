@@ -23,8 +23,8 @@ import numpy as np
 
 
 
-seed = 26
-L.seed_everything(seed, workers=True)
+# seed = 26
+# L.seed_everything(seed, workers=True)
 
 
 
@@ -63,7 +63,7 @@ class ClassificationHead(L.LightningModule):
 
         self.learning_rate = 1e-4
         self.weight_decay = 1e-5
-        weights = torch.tensor([15.0, 15.0, 2.0, 1.0, 1.0, 0.5, 1.5, 1.5, 5.0, 15.0])
+        weights = torch.tensor([15.0, 15.0, 2.0, 1.0, 1.0, 0.5, 1.0, 1.5, 5.0, 15.0])
         self.loss = FocalLoss(alpha=weights.to(self.device), gamma=2.0, reduction='mean')  # Focal loss
         #self.loss = nn.CrossEntropyLoss(weight=weights.to(self.device))  # Cross-entropy loss with class weights
         #self.loss = nn.CrossEntropyLoss()  # Cross-entropy 
@@ -156,7 +156,7 @@ def trainXGB(x_train_processed, y_train, x_test_processed, y_test):
     probs = xgb.predict_proba(x_test_processed)
 
     report = classification_report(y_test, y_pred_xgb, output_dict=True)
-    print(report)
+    #print(report)
     auc = printAUC(y_test, probs, num_classes=10)
 
     return report, auc
@@ -233,9 +233,9 @@ if __name__ == "__main__":
     x_train_processed, y_train, x_val_processed, y_val, x_test_processed, y_test = readData(trainSet, testSet)
 
     # 30 different seeds
-    # seeds = [26]
-    seeds = [1,2,3,4,5]
-    #seeds = [26, 42, 123, 2024, 999, 2023, 2022, 2021, 2020, 2019, 2018, 2017, 2016, 2015, 2014, 2013, 2012, 2011, 2010, 2009, 72, 71, 70, 69, 68, 67, 66, 65, 64, 63]
+    #seeds = [1492]
+    #seeds = [1,2,3,4,5]
+    seeds = [26, 42, 123, 2024, 999, 2023, 2022, 2021, 2020, 2019, 2018, 2017, 2016, 2015, 2014, 2013, 2012, 2011, 2010, 2009, 72, 71, 70, 69, 68, 67, 66, 65, 64, 63]
     for index, seed in enumerate(seeds):
         L.seed_everything(seed, workers=True)
         
@@ -268,37 +268,42 @@ if __name__ == "__main__":
         train_dataset_embeddings = torch.utils.data.TensorDataset(x_train_small, y_train_small)
         validation_dataset_embeddings = torch.utils.data.TensorDataset(x_val_small, y_val_small)
         test_dataset_embeddings = torch.utils.data.TensorDataset(x_test_processed, y_test)
+        batch_size = 32
 
         train_dataloader_embeddings = torch.utils.data.DataLoader(
             train_dataset_embeddings,
-            batch_size=32,
+            batch_size=batch_size,
             shuffle=True,
             num_workers=0
         )
 
         validation_dataloader_embeddings = torch.utils.data.DataLoader(
             validation_dataset_embeddings,
-            batch_size=32,
+            batch_size=batch_size,
             shuffle=True,
             num_workers=0
         )
 
         test_dataloader_embeddings = torch.utils.data.DataLoader(
             test_dataset_embeddings,
-            batch_size=32,
+            batch_size=batch_size,
             shuffle=False,
             num_workers=0
         )
 
 
         model = ClassificationHead(input_dim=186, dropout=0.0)
+        n_epochs = 50
 
         #early_stopping_callback = EarlyStopping(monitor="cl_validation_loss", patience=3)
-        trainer = L.Trainer(max_epochs=30, accelerator='gpu', logger=True, enable_progress_bar=True) #, callbacks=[early_stopping_callback])
+        trainer = L.Trainer(max_epochs=n_epochs, accelerator='gpu', logger=True, enable_progress_bar=True) #, callbacks=[early_stopping_callback])
         trainer.fit(model, train_dataloader_embeddings, validation_dataloader_embeddings)
 
 
         classes = [0,1,2,3,4,5,6,7,8,9]
+
+
+
         #print("\n\n MLP")
 
         outputs = trainer.predict(model, test_dataloader_embeddings)
@@ -374,10 +379,21 @@ if __name__ == "__main__":
 
     # MLP IC
 
-    print("\n\nMLP results:")
+    f = open("supervised_all_seeds.txt", "w")
+
+    f.write("Parameters:\n")
+    f.write("Number of epochs: " + str(n_epochs) + "\n")
+    f.write("Batch size: " + str(batch_size) + "\n")
+    f.write("Number of seeds: " + str(len(seeds)) + "\n")
+    f.write("XGB: XGBClassifier(n_estimators=100, learning_rate=0.1, max_depth=6, random_state=seed)\n")
+    f.write("RF: RandomForestClassifier(n_estimators=100, random_state=seed)\n")
+
+    print("\n\n MLP Confidence Intervals \n\n")
+    f.write("\n\n MLP Confidence Intervals \n\n")
 
     for i in range(10):
         print("Class ", i)
+        f.write("Class " + str(i) + "\n")
         ci_precision = np.percentile(precisions[i], [2.5, 97.5])
         ci_recall = np.percentile(recalls[i], [2.5, 97.5])
         ci_f1score = np.percentile(f1scores[i], [2.5, 97.5])
@@ -389,9 +405,13 @@ if __name__ == "__main__":
         mean_auc = np.mean(aucscores[i])
 
         print("Precision: ", mean_precision, " CI: ", ci_precision)
+        f.write("Precision: " + str(mean_precision) + " CI: " + str(ci_precision) + "\n")
         print("Recall: ", mean_recall, " CI: ", ci_recall)
+        f.write("Recall: " + str(mean_recall) + " CI: " + str(ci_recall) + "\n")
         print("F1-score: ", mean_f1score, " CI: ", ci_f1score)
+        f.write("F1-score: " + str(mean_f1score) + " CI: " + str(ci_f1score) + "\n")
         print("AUC: ", mean_auc, " CI: ", ci_auc)
+        f.write("AUC: " + str(mean_auc) + " CI: " + str(ci_auc) + "\n")
 
     ci_accuracy = np.percentile(accuracies, [2.5, 97.5])
     ci_macroavg = np.percentile(macroavgs, [2.5, 97.5])
@@ -402,14 +422,103 @@ if __name__ == "__main__":
 
 
     print("\n")
+    f.write("\n")
     print("Accuracy: ", mean_accuracy, " CI: ", ci_accuracy)
+    f.write("Accuracy: " + str(mean_accuracy) + " CI: " + str(ci_accuracy) + "\n")
     print("Macro avg F1-score: ", mean_macroavg, " CI: ", ci_macroavg)
+    f.write("Macro avg F1-Score: " + str(mean_macroavg) + " CI: " + str(ci_macroavg) + "\n")
     print("Weighted avg F1-score: ", mean_weightedavg, " CI: ", ci_weightedavg)
+    f.write("Weighted avg F1-Score: " + str(mean_weightedavg) + " CI: " + str(ci_weightedavg) + "\n")
 
 
-    # TODO: hacer lo mismo para RF y XGB. Hacer lo mismo con modelos entrenados sobre latent features
-        
-        
+    # RF IC
+
+    print("\n\nRF results:")
+    f.write("\n\nRF results:\n")
+
+    for i in range(10):
+        print("Class ", i)
+        f.write("Class " + str(i) + "\n")
+
+        ci_precision = np.percentile(RF_precisions[i], [2.5, 97.5])
+        ci_recall = np.percentile(RF_recalls[i], [2.5, 97.5])
+        ci_f1score = np.percentile(RF_f1scores[i], [2.5, 97.5])
+        ci_auc = np.percentile(RF_aucscores[i], [2.5, 97.5])
+        mean_precision = np.mean(RF_precisions[i])
+        mean_recall = np.mean(RF_recalls[i])
+        mean_f1score = np.mean(RF_f1scores[i])
+        mean_auc = np.mean(RF_aucscores[i])
+
+        print("Precision: ", mean_precision, " CI: ", ci_precision)
+        f.write("Precision: " + str(mean_precision) + " CI: " + str(ci_precision) + "\n")
+        print("Recall: ", mean_recall, " CI: ", ci_recall)
+        f.write("Recall: " + str(mean_recall) + " CI: " + str(ci_recall) + "\n")
+        print("F1-score: ", mean_f1score, " CI: ", ci_f1score)
+        f.write("F1-score: " + str(mean_f1score) + " CI: " + str(ci_f1score) + "\n")
+        print("AUC: ", mean_auc, " CI: ", ci_auc)
+        f.write("AUC: " + str(mean_auc) + " CI: " + str(ci_auc) + "\n")
+
+    ci_accuracy = np.percentile(RF_accuracies, [2.5, 97.5])
+    ci_macroavg = np.percentile(RF_macroavgs, [2.5, 97.5])
+    ci_weightedavg = np.percentile(RF_weightedavgs, [2.5, 97.5])
+    mean_accuracy = np.mean(RF_accuracies)
+    mean_macroavg = np.mean(RF_macroavgs)
+    mean_weightedavg = np.mean(RF_weightedavgs)
+
+    print("\n")
+    f.write("\n")
+    print("Accuracy: ", mean_accuracy, " CI: ", ci_accuracy)
+    f.write("Accuracy: " + str(mean_accuracy) + " CI: " + str(ci_accuracy) + "\n")
+    print("Macro avg F1-score: ", mean_macroavg, " CI: ", ci_macroavg)
+    f.write("Macro avg F1-Score: " + str(mean_macroavg) + " CI: " + str(ci_macroavg) + "\n")
+    print("Weighted avg F1-score: ", mean_weightedavg, " CI: ", ci_weightedavg)
+    f.write("Weighted avg F1-Score: " + str(mean_weightedavg) + " CI: " + str(ci_weightedavg) + "\n")
+
+
+    # XGB IC
+
+    print("\n\nXGB results:")
+    f.write("\n\nXGB results:\n")
+
+    for i in range(10):
+        print("Class ", i)
+        f.write("Class " + str(i) + "\n")
+        ci_precision = np.percentile(XGB_precisions[i], [2.5, 97.5])
+        ci_recall = np.percentile(XGB_recalls[i], [2.5, 97.5])
+        ci_f1score = np.percentile(XGB_f1scores[i], [2.5, 97.5])
+        ci_auc = np.percentile(XGB_aucscores[i], [2.5, 97.5])
+        mean_precision = np.mean(XGB_precisions[i])
+        mean_recall = np.mean(XGB_recalls[i])
+        mean_f1score = np.mean(XGB_f1scores[i])
+        mean_auc = np.mean(XGB_aucscores[i])
+
+        print("Precision: ", mean_precision, " CI: ", ci_precision)
+        f.write("Precision: " + str(mean_precision) + " CI: " + str(ci_precision) + "\n")
+        print("Recall: ", mean_recall, " CI: ", ci_recall)
+        f.write("Recall: " + str(mean_recall) + " CI: " + str(ci_recall) + "\n")
+        print("F1-score: ", mean_f1score, " CI: ", ci_f1score)
+        f.write("F1-score: " + str(mean_f1score) + " CI: " + str(ci_f1score) + "\n")
+        print("AUC: ", mean_auc, " CI: ", ci_auc)
+        f.write("AUC: " + str(mean_auc) + " CI: " + str(ci_auc) + "\n")
+
+    ci_accuracy = np.percentile(XGB_accuracies, [2.5, 97.5])
+    ci_macroavg = np.percentile(XGB_macroavgs, [2.5, 97.5])
+    ci_weightedavg = np.percentile(XGB_weightedavgs, [2.5, 97.5])
+    mean_accuracy = np.mean(XGB_accuracies)
+    mean_macroavg = np.mean(XGB_macroavgs)
+    mean_weightedavg = np.mean(XGB_weightedavgs)
+
+    print("\n")
+    f.write("\n")
+    print("Accuracy: ", mean_accuracy, " CI: ", ci_accuracy)
+    f.write("Accuracy: " + str(mean_accuracy) + " CI: " + str(ci_accuracy) + "\n")
+    print("Macro avg F1-score: ", mean_macroavg, " CI: ", ci_macroavg)
+    f.write("Macro avg F1-Score: " + str(mean_macroavg) + " CI: " + str(ci_macroavg) + "\n")
+    print("Weighted avg F1-score: ", mean_weightedavg, " CI: ", ci_weightedavg)
+    f.write("Weighted avg F1-Score: " + str(mean_weightedavg) + " CI: " + str(ci_weightedavg) + "\n")
+    
+
+    f.close()
 
 
 

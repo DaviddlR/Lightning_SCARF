@@ -1,6 +1,7 @@
 import torch
 from torch import nn
 import lightning as L
+from lightning.pytorch.callbacks import ModelCheckpoint
 
 from lightning.pytorch.callbacks import EarlyStopping
 
@@ -22,8 +23,7 @@ from supervisedClassifier import ClassificationHead
 from preprocessing import readData
 
 
-seed = 25
-L.seed_everything(seed, workers=True)
+
 
 class Encoder(nn.Module):
 
@@ -80,9 +80,9 @@ class SCARFLightning(L.LightningModule):
             nn.Linear(hidden_dim, in_dim)
         )
 
-        print(self.main_encoder)
-        print(self.pretraining_head)
-        print(self.decoder)
+        # print(self.main_encoder)
+        # print(self.pretraining_head)
+        # print(self.decoder)
 
 
         # Set corruption rate, learning rate, and loss
@@ -91,8 +91,8 @@ class SCARFLightning(L.LightningModule):
         self.learning_rate = 5e-4
         self.weight_decay = 1e-5
 
-        self.ir_weight = 100
-        self.loss = nt_xent_loss(temperature=0.4)
+        self.ir_weight = 0 #100
+        self.loss = nt_xent_loss(temperature=1)
         self.ir_loss = nn.MSELoss()
 
         # Uniform distribution over marginal distribution
@@ -203,7 +203,11 @@ class SCARFLightning(L.LightningModule):
         return optimizer
 
 if __name__ == "__main__":
+    print("\n\n SCARF MAIN \n\n")
     print("This is the SCARF module. It contains the implementation of the SCARF algorithm for feature selection.")
+
+    #seed = 1491
+    #L.seed_everything(seed, workers=True)
 
     trainSet = "UNSW_NB15/UNSW_NB15_training-set.parquet"
     testSet = "UNSW_NB15/UNSW_NB15_testing-set.parquet"
@@ -228,7 +232,7 @@ if __name__ == "__main__":
                         head_hidden_dim = 256,  # 256 
                         head_num_hidden = 2, 
                         dropout = 0, 
-                        corruption_rate = 0.2)
+                        corruption_rate = 0.6)
 
 
     print(model)
@@ -237,7 +241,9 @@ if __name__ == "__main__":
     # Create trainer and fit
     
     #early_stopping_callback = EarlyStopping(monitor="validation_loss", patience=3, mode="min")
-    trainer = L.Trainer(max_epochs=100, accelerator='gpu', logger=True, enable_progress_bar=True) #callbacks=[early_stopping_callback])
+
+    n_epochs = 150
+    trainer = L.Trainer(max_epochs=n_epochs, accelerator='gpu', logger=True, enable_progress_bar=True) #callbacks=[early_stopping_callback])
     trainer.fit(model, train_loader, validation_loader)
 
 

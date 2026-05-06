@@ -19,8 +19,8 @@ from SCARFDataset import SCARFDataset
 from preprocessing import readData
 
 
-seed = 93
-L.seed_everything(seed, workers=True)
+# seed = 93
+# L.seed_everything(seed, workers=True)
 
 
 
@@ -39,6 +39,11 @@ def printAUC(y_true, y_probs, num_classes):
 
 
 
+
+
+seed = 1492
+L.seed_everything(seed, workers=True)
+
 # Load data
 trainSet = "UNSW_NB15/UNSW_NB15_training-set.parquet"
 testSet = "UNSW_NB15/UNSW_NB15_testing-set.parquet"
@@ -54,7 +59,7 @@ validation_loader = torch.utils.data.DataLoader(validation_dataset, batch_size=b
 test_loader = torch.utils.data.DataLoader(test_dataset, batch_size=batch_size, shuffle=False)
 
 # Load model
-saved_checkpoint = SCARFLightning.load_from_checkpoint("checkpoints/CL_IR_epoch=99-step=61700.ckpt", in_dim = train_dataset.shape[1], hidden_dim = 256, num_hidden = 4, head_hidden_dim = 256, head_num_hidden = 2, dropout = 0, corruption_rate = 0.2)
+saved_checkpoint = SCARFLightning.load_from_checkpoint("checkpoints/CAEPIA_temp1_CR06.ckpt", in_dim = train_dataset.shape[1], hidden_dim = 256, num_hidden = 4, head_hidden_dim = 256, head_num_hidden = 2, dropout = 0, corruption_rate = 0.6)
 saved_checkpoint.freeze()
 
 # Classification on top of the embeddings
@@ -77,8 +82,8 @@ if doitsmall:
     label_proportion = 0.01
     train_embeddings,_ , train_labels, _ = train_test_split(train_embeddings, train_labels, test_size=1-label_proportion, random_state=seed, stratify=train_labels) 
 
-    label_proportion = 0.01
-    validation_embeddings,_ , validation_labels, _ = train_test_split(validation_embeddings, validation_labels, test_size=1-label_proportion, random_state=seed, stratify=validation_labels) 
+    # label_proportion = 0.01
+    # validation_embeddings,_ , validation_labels, _ = train_test_split(validation_embeddings, validation_labels, test_size=1-label_proportion, random_state=seed, stratify=validation_labels) 
 
 
 print("Training set: ", train_embeddings.shape, train_labels.shape)
@@ -115,8 +120,11 @@ classification_head = ClassificationHead(dropout=0.2)
 
 #early_stopping_callback = EarlyStopping(monitor="cl_validation_loss", patience=3)
 #trainer = L.Trainer(max_epochs=200, accelerator='gpu', logger=True, enable_progress_bar=True, callbacks=[early_stopping_callback])
-trainer = L.Trainer(max_epochs=70, accelerator='gpu', logger=True, enable_progress_bar=True)
+trainer = L.Trainer(max_epochs=50, accelerator='gpu', logger=True, enable_progress_bar=True)
 trainer.fit(classification_head, train_dataloader_embeddings, validation_dataloader_embeddings)
+
+
+
 
 print("\n\nTEST CLASSIFICATION HEAD")
 #trainer.test(classification_head, test_dataloader_embeddings)
@@ -130,6 +138,13 @@ print(printAUC(y_test, torch.tensor(probs).cpu().numpy(), num_classes=10))
 
 print("\n\n")
 
+
+
+
+
+
+
+
 # XGBOOST CLASSIFICATION ON TOP OF EMBEDDINGS
 xgb = XGBClassifier(n_estimators=100, learning_rate=0.1, max_depth=6, random_state=seed)
 xgb.fit(train_embeddings, train_labels)
@@ -138,6 +153,10 @@ y_pred_xgb = xgb.predict(test_embeddings)
 print("\n\n---------- XGBoost Classification Report ----------")
 print(classification_report(test_labels, y_pred_xgb))
 
+
+
+
+
 # Random Forest CLASSIFICATION ON TOP OF EMBEDDINGS
 rf = RandomForestClassifier(n_estimators=100, random_state=seed)
 rf.fit(train_embeddings, train_labels)
@@ -145,6 +164,9 @@ rf.fit(train_embeddings, train_labels)
 y_pred_rf = rf.predict(test_embeddings)
 print("\n\n---------- Random Forest Classification Report ----------")
 print(classification_report(test_labels, y_pred_rf))
+
+
+
 
 
 

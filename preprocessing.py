@@ -9,7 +9,7 @@ from sklearn.model_selection import train_test_split
 
 
 
-def readData(filenameTrain, filenameTest):
+def readData(filenameTrain, filenameTest, seed=24):
 
     df = pd.read_parquet(filenameTrain)
     dfTest = pd.read_parquet(filenameTest)
@@ -28,7 +28,7 @@ def readData(filenameTrain, filenameTest):
     y_test = label_encoder.transform(y_test)
 
     # Create validation set (10% of the training data)
-    x_train, x_val, y_train, y_val = train_test_split(x_train, y_train, test_size=0.1, random_state=24)  
+    x_train, x_val, y_train, y_val = train_test_split(x_train, y_train, test_size=0.1, random_state=seed)  
 
     
 
