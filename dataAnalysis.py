@@ -18,6 +18,7 @@ print(df.head().to_string())
 print(df.info())
 print(df["label"].value_counts())  # 0 for normal, 1 for attack
 print(df["attack_cat"].value_counts())  # Count of each attack category. Includes Normal as a category.
+
 print(df["service"].value_counts())
 
 print(df.describe())
@@ -30,6 +31,11 @@ print(constantColumns)  # There are no constant columns
 # 1. Codificar las categorías para asegurar el orden
 le = LabelEncoder()
 df['attack_cat_encoded'] = le.fit_transform(df['attack_cat'])
+
+# Imprimir el mapeo de clases para referencia
+print("Mapeo de clases:")
+for cls, idx in zip(le.classes_, le.transform(le.classes_)):
+    print(f"{cls:15s}: {idx}")
 
 # Obtener el mapeo para el paper (ej: 0: Analysis, 1: Backdoor...)
 class_mapping = dict(zip(le.classes_, range(len(le.classes_))))

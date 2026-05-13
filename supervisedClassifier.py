@@ -5,6 +5,9 @@ import lightning as L
 import torch
 from torch.nn import functional as F
 
+from sklearn.tree import DecisionTreeClassifier
+from sklearn.neighbors import KNeighborsClassifier
+from sklearn.svm import SVC
 from sklearn.ensemble import RandomForestClassifier
 from xgboost import XGBClassifier
 from sklearn.metrics import classification_report
@@ -176,6 +179,42 @@ def trainRF(x_train_processed, y_train, x_test_processed, y_test):
 
     return report, auc
 
+def trainSVM(x_train_processed, y_train, x_test_processed, y_test):
+    svm = SVC(kernel='rbf', probability=True, random_state=seed)
+    svm.fit(x_train_processed, y_train)
+
+    y_pred_svm = svm.predict(x_test_processed)
+    probs = svm.predict_proba(x_test_processed)
+
+    report = classification_report(y_test, y_pred_svm, output_dict=True)
+    auc = printAUC(y_test, probs, num_classes=10)
+
+    return report, auc
+
+def trainKNN(x_train_processed, y_train, x_test_processed, y_test):
+    knn = KNeighborsClassifier(n_neighbors=5)
+    knn.fit(x_train_processed, y_train)
+
+    y_pred_knn = knn.predict(x_test_processed)
+    probs = knn.predict_proba(x_test_processed)
+
+    report = classification_report(y_test, y_pred_knn, output_dict=True)
+    auc = printAUC(y_test, probs, num_classes=10)
+
+    return report, auc
+
+def trainC45(x_train_processed, y_train, x_test_processed, y_test):
+    c45 = DecisionTreeClassifier(random_state=seed)
+    c45.fit(x_train_processed, y_train)
+
+    y_pred_c45 = c45.predict(x_test_processed)
+    probs = c45.predict_proba(x_test_processed)
+
+    report = classification_report(y_test, y_pred_c45, output_dict=True)
+    auc = printAUC(y_test, probs, num_classes=10)
+
+    return report, auc
+
 
 
 
@@ -226,6 +265,52 @@ if __name__ == "__main__":
         XGB_f1scores[i] = list()
         XGB_aucscores[i] = list()
 
+    # SVM scores
+    SVM_precisions = dict()
+    SVM_recalls = dict()
+    SVM_f1scores = dict()
+    SVM_accuracies = list()
+    SVM_macroavgs = list()
+    SVM_weightedavgs = list()
+    SVM_aucscores = dict()
+
+    for i in range (10):
+        SVM_precisions[i] = list()
+        SVM_recalls[i] = list()
+        SVM_f1scores[i] = list()
+        SVM_aucscores[i] = list()
+
+    # KNN scores
+    KNN_precisions = dict()
+    KNN_recalls = dict()
+    KNN_f1scores = dict()
+    KNN_accuracies = list()
+    KNN_macroavgs = list()
+    KNN_weightedavgs = list()
+    KNN_aucscores = dict()
+
+    for i in range (10):
+        KNN_precisions[i] = list()
+        KNN_recalls[i] = list()
+        KNN_f1scores[i] = list()
+        KNN_aucscores[i] = list()
+
+    # C45 scores
+    C45_precisions = dict()
+    C45_recalls = dict()
+    C45_f1scores = dict()
+    C45_accuracies = list()
+    C45_macroavgs = list()
+    C45_weightedavgs = list()
+    C45_aucscores = dict()
+
+    for i in range (10):
+        C45_precisions[i] = list()
+        C45_recalls[i] = list()
+        C45_f1scores[i] = list()
+        C45_aucscores[i] = list()
+
+    
 
 
     trainSet = "UNSW_NB15/UNSW_NB15_training-set.parquet"
@@ -235,7 +320,9 @@ if __name__ == "__main__":
     # 30 different seeds
     #seeds = [1492]
     #seeds = [1,2,3,4,5]
-    seeds = [26, 42, 123, 2024, 999, 2023, 2022, 2021, 2020, 2019, 2018, 2017, 2016, 2015, 2014, 2013, 2012, 2011, 2010, 2009, 72, 71, 70, 69, 68, 67, 66, 65, 64, 63]
+    #seeds = [26, 42, 123, 2024, 999, 2023, 2022, 2021, 2020, 2019, 2018, 2017, 2016, 2015, 2014, 2013, 2012, 2011, 2010, 2009, 72, 71, 70, 69, 68, 67, 66, 65, 64, 63]
+    seeds = [26, 42, 123, 2024, 999, 2023, 2022, 2021, 2020, 2019]
+    
     for index, seed in enumerate(seeds):
         L.seed_everything(seed, workers=True)
         
@@ -377,9 +464,7 @@ if __name__ == "__main__":
 
     # Obtenemos intervalos de confianza
 
-    # MLP IC
-
-    f = open("supervised_all_seeds.txt", "w")
+    f = open("More_supervised_all_seeds.txt", "w")
 
     f.write("Parameters:\n")
     f.write("Number of epochs: " + str(n_epochs) + "\n")
@@ -387,7 +472,11 @@ if __name__ == "__main__":
     f.write("Number of seeds: " + str(len(seeds)) + "\n")
     f.write("XGB: XGBClassifier(n_estimators=100, learning_rate=0.1, max_depth=6, random_state=seed)\n")
     f.write("RF: RandomForestClassifier(n_estimators=100, random_state=seed)\n")
+    f.write("SVM: SVC(kernel='rbf', probability=True, random_state=seed)\n")
+    f.write("KNN: KNeighborsClassifier(n_neighbors=5)\n")
+    f.write("C45: DecisionTreeClassifier(random_state=seed)\n")
 
+    # MLP IC
     print("\n\n MLP Confidence Intervals \n\n")
     f.write("\n\n MLP Confidence Intervals \n\n")
 
@@ -516,11 +605,137 @@ if __name__ == "__main__":
     f.write("Macro avg F1-Score: " + str(mean_macroavg) + " CI: " + str(ci_macroavg) + "\n")
     print("Weighted avg F1-score: ", mean_weightedavg, " CI: ", ci_weightedavg)
     f.write("Weighted avg F1-Score: " + str(mean_weightedavg) + " CI: " + str(ci_weightedavg) + "\n")
-    
-
-    f.close()
 
 
+
+
+    # SVM IC
+    print("\n\nSVM results:")
+    f.write("\n\nSVM results:\n")
+
+    for i in range(10):
+        print("Class ", i)
+        f.write("Class " + str(i) + "\n")
+        ci_precision = np.percentile(SVM_precisions[i], [2.5, 97.5])
+        ci_recall = np.percentile(SVM_recalls[i], [2.5, 97.5])
+        ci_f1score = np.percentile(SVM_f1scores[i], [2.5, 97.5])
+        ci_auc = np.percentile(SVM_aucscores[i], [2.5, 97.5])
+        mean_precision = np.mean(SVM_precisions[i])
+        mean_recall = np.mean(SVM_recalls[i])
+        mean_f1score = np.mean(SVM_f1scores[i])
+        mean_auc = np.mean(SVM_aucscores[i])
+
+        print("Precision: ", mean_precision, " CI: ", ci_precision)
+        f.write("Precision: " + str(mean_precision) + " CI: " + str(ci_precision) + "\n")
+        print("Recall: ", mean_recall, " CI: ", ci_recall)
+        f.write("Recall: " + str(mean_recall) + " CI: " + str(ci_recall) + "\n")
+        print("F1-score: ", mean_f1score, " CI: ", ci_f1score)
+        f.write("F1-score: " + str(mean_f1score) + " CI: " + str(ci_f1score) + "\n")
+        print("AUC: ", mean_auc, " CI: ", ci_auc)
+        f.write("AUC: " + str(mean_auc) + " CI: " + str(ci_auc) + "\n")
+
+    ci_accuracy = np.percentile(SVM_accuracies, [2.5, 97.5])
+    ci_macroavg = np.percentile(SVM_macroavgs, [2.5, 97.5])
+    ci_weightedavg = np.percentile(SVM_weightedavgs, [2.5, 97.5])
+    mean_accuracy = np.mean(SVM_accuracies)
+    mean_macroavg = np.mean(SVM_macroavgs)
+    mean_weightedavg = np.mean(SVM_weightedavgs)
+
+    print("\n")
+    f.write("\n")
+    print("Accuracy: ", mean_accuracy, " CI: ", ci_accuracy)
+    f.write("Accuracy: " + str(mean_accuracy) + " CI: " + str(ci_accuracy) + "\n")
+    print("Macro avg F1-score: ", mean_macroavg, " CI: ", ci_macroavg)
+    f.write("Macro avg F1-Score: " + str(mean_macroavg) + " CI: " + str(ci_macroavg) + "\n")
+    print("Weighted avg F1-score: ", mean_weightedavg, " CI: ", ci_weightedavg)
+    f.write("Weighted avg F1-Score: " + str(mean_weightedavg) + " CI: " + str(ci_weightedavg) + "\n")
+
+
+    # KNN IC
+    print("\n\nKNN results:")
+    f.write("\n\nKNN results:\n")
+
+    for i in range(10):
+        print("Class ", i)
+        f.write("Class " + str(i) + "\n")
+        ci_precision = np.percentile(KNN_precisions[i], [2.5, 97.5])
+        ci_recall = np.percentile(KNN_recalls[i], [2.5, 97.5])
+        ci_f1score = np.percentile(KNN_f1scores[i], [2.5, 97.5])
+        ci_auc = np.percentile(KNN_aucscores[i], [2.5, 97.5])
+        mean_precision = np.mean(KNN_precisions[i])
+        mean_recall = np.mean(KNN_recalls[i])
+        mean_f1score = np.mean(KNN_f1scores[i])
+        mean_auc = np.mean(KNN_aucscores[i])
+
+        print("Precision: ", mean_precision, " CI: ", ci_precision)
+        f.write("Precision: " + str(mean_precision) + " CI: " + str(ci_precision) + "\n")
+        print("Recall: ", mean_recall, " CI: ", ci_recall)
+        f.write("Recall: " + str(mean_recall) + " CI: " + str(ci_recall) + "\n")
+        print("F1-score: ", mean_f1score, " CI: ", ci_f1score)
+        f.write("F1-score: " + str(mean_f1score) + " CI: " + str(ci_f1score) + "\n")
+        print("AUC: ", mean_auc, " CI: ", ci_auc)
+        f.write("AUC: " + str(mean_auc) + " CI: " + str(ci_auc) + "\n")
+
+    ci_accuracy = np.percentile(KNN_accuracies, [2.5, 97.5])
+    ci_macroavg = np.percentile(KNN_macroavgs, [2.5, 97.5])
+    ci_weightedavg = np.percentile(KNN_weightedavgs, [2.5, 97.5])
+    mean_accuracy = np.mean(KNN_accuracies)
+    mean_macroavg = np.mean(KNN_macroavgs)
+    mean_weightedavg = np.mean(KNN_weightedavgs)
+
+
+    print("\n")
+    f.write("\n")
+    print("Accuracy: ", mean_accuracy, " CI: ", ci_accuracy)
+    f.write("Accuracy: " + str(mean_accuracy) + " CI: " + str(ci_accuracy) + "\n")
+    print("Macro avg F1-score: ", mean_macroavg, " CI: ", ci_macroavg)
+    f.write("Macro avg F1-Score: " + str(mean_macroavg) + " CI: " + str(ci_macroavg) + "\n")
+    print("Weighted avg F1-score: ", mean_weightedavg, " CI: ", ci_weightedavg)
+    f.write("Weighted avg F1-Score: " + str(mean_weightedavg) + " CI: " + str(ci_weightedavg) + "\n")
+
+
+
+    # C45 IC
+    print("\n\nC45 results:")
+    f.write("\n\nC45 results:\n")
+
+    for i in range(10):
+        print("Class ", i)
+        f.write("Class " + str(i) + "\n")
+        ci_precision = np.percentile(C45_precisions[i], [2.5, 97.5])
+        ci_recall = np.percentile(C45_recalls[i], [2.5, 97.5])
+        ci_f1score = np.percentile(C45_f1scores[i], [2.5, 97.5])
+        ci_auc = np.percentile(C45_aucscores[i], [2.5, 97.5])
+
+        mean_precision = np.mean(C45_precisions[i])
+        mean_recall = np.mean(C45_recalls[i])
+        mean_f1score = np.mean(C45_f1scores[i])
+        mean_auc = np.mean(C45_aucscores[i])
+
+        print("Precision: ", mean_precision, " CI: ", ci_precision)
+        f.write("Precision: " + str(mean_precision) + " CI: " + str(ci_precision) + "\n")
+        print("Recall: ", mean_recall, " CI: ", ci_recall)
+        f.write("Recall: " + str(mean_recall) + " CI: " + str(ci_recall) + "\n")
+        print("F1-score: ", mean_f1score, " CI: ", ci_f1score)
+        f.write("F1-score: " + str(mean_f1score) + " CI: " + str(ci_f1score) + "\n")
+        print("AUC: ", mean_auc, " CI: ", ci_auc)
+        f.write("AUC: " + str(mean_auc) + " CI: " + str(ci_auc) + "\n")
+
+    ci_accuracy = np.percentile(C45_accuracies, [2.5, 97.5])
+    ci_macroavg = np.percentile(C45_macroavgs, [2.5, 97.5])
+    ci_weightedavg = np.percentile(C45_weightedavgs, [2.5, 97.5])
+    mean_accuracy = np.mean(C45_accuracies)
+    mean_macroavg = np.mean(C45_macroavgs)
+    mean_weightedavg = np.mean(C45_weightedavgs)
+
+    print("\n")
+    f.write("\n")
+    print("Accuracy: ", mean_accuracy, " CI: ", ci_accuracy)
+    f.write("Accuracy: " + str(mean_accuracy) + " CI: " + str(ci_accuracy) + "\n")
+    print("Macro avg F1-score: ", mean_macroavg, " CI: ", ci_macroavg)
+    f.write("Macro avg F1-Score: " + str(mean_macroavg) + " CI: " + str(ci_macroavg) + "\n")
+    print("Weighted avg F1-score: ", mean_weightedavg, " CI: ", ci_weightedavg)
+    f.write("Weighted avg F1-Score: " + str(mean_weightedavg) + " CI: " + str(ci_weightedavg) + "\n")
 
 
 
