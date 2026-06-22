@@ -40,16 +40,23 @@ ax = sns.barplot(data=df, x='Class', y='F1-Score', hue='Setting', palette='virid
 # Cambia el 0.5 por un valor ligeramente inferior a tu mínimo (ej: 0.3)
 plt.ylim(0.00, 1.0) 
 
-plt.title('F1-Score Comparison by Class and Setting', fontsize=15)
-plt.ylabel('Average F1-Score', fontsize=12)
-plt.xlabel('Classes', fontsize=12)
+
+# Tamaño de las etiquetas del eje X e Y
+plt.xticks(fontsize=15)
+plt.yticks(fontsize=15)
+
+
+
+plt.title('F1-Score Comparison by Class and Setting', fontsize=20)
+plt.ylabel('Average F1-Score', fontsize=17)
+plt.xlabel('Classes', fontsize=17)
 plt.legend(
-    title='Configuración', 
+    title='Configuration', 
     loc='upper left',       # Posición: 'upper right', 'upper left', 'lower center', etc.
     frameon=True,           # Dibujar caja de fondo
     framealpha=0.8,         # Transparencia del fondo (0 es invisible, 1 es sólido)
     edgecolor='gray',       # Color del borde de la caja
-    fontsize='medium'
+    fontsize='large'
 )
 plt.tight_layout()
 
@@ -61,23 +68,3 @@ plt.show()
 
 
 
-
-# Convertimos los datos a formato matriz para el heatmap
-heatmap_data = df.pivot(index="Class", columns="Setting", values="F1-Score")
-
-# Reordenar columnas para que tengan sentido lógico
-order = ['Supervised 1%', 'Supervised 100%', 'Reconstruction', 'Contrastive']
-heatmap_data = heatmap_data[order]
-
-plt.figure(figsize=(10, 8))
-
-# annot=True pone el número dentro del cuadro
-# fmt=".3f" define los decimales
-sns.heatmap(heatmap_data, annot=True, fmt=".3f", cmap="YlGnBu", linewidths=.5)
-
-plt.title('Heatmap de F1-Score por Clase y Setting', fontsize=15)
-plt.ylabel('Clases')
-plt.xlabel('Configuraciones')
-plt.tight_layout()
-
-plt.show()

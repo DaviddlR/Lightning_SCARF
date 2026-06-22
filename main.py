@@ -146,8 +146,8 @@ if __name__ == "__main__":
     # 30 seeds
     #seeds = [1492, 67]
     #seeds = [1,2,3,4,5]
-    #seeds = [26, 42, 123, 2024, 999, 2023, 2022, 2021, 2020, 2019, 2018, 2017, 2016, 2015, 2014, 2013, 2012, 2011, 2010, 2009, 72, 71, 70, 69, 68, 67, 66, 65, 64, 63]
-    seeds = [26, 42, 123, 2024, 999, 2023, 2022, 2021, 2020, 2019]
+    seeds = [26, 42, 123, 2024, 999, 2023, 2022, 2021, 2020, 2019, 2018, 2017, 2016, 2015, 2014, 2013, 2012, 2011, 2010, 2009, 72, 71, 70, 69, 68, 67, 66, 65, 64, 63]
+    #seeds = [26, 42, 123, 2024, 999, 2023, 2022, 2021, 2020, 2019]
     for seed in seeds:
         
         print(f"\n\n SEED: {seed} \n\n")
@@ -420,7 +420,7 @@ if __name__ == "__main__":
 
     # Also print the results in a TXT file
 
-    f = open("CAEPIA_SCARF_con_FocalLoss_multiseed.txt", "w")
+    f = open("results.txt", "w")
 
 
     # Save parameters
@@ -430,9 +430,9 @@ if __name__ == "__main__":
     f.write("Number of seeds: " + str(len(seeds)) + "\n")
     if doitsmall:
         f.write("Label proportion: " + str(label_proportion) + "\n")
-    f.write("MLP: L.Trainer(max_epochs=50, accelerator='gpu', logger=True, enable_progress_bar=True)\n")
-    f.write("XGB: XGBClassifier(n_estimators=100, learning_rate=0.1, max_depth=6, random_state=seed)\n")
-    f.write("RF: RandomForestClassifier(n_estimators=100, random_state=seed)\n")
+    # f.write("MLP: L.Trainer(max_epochs=50, accelerator='gpu', logger=True, enable_progress_bar=True)\n")
+    # f.write("XGB: XGBClassifier(n_estimators=100, learning_rate=0.1, max_depth=6, random_state=seed)\n")
+    # f.write("RF: RandomForestClassifier(n_estimators=100, random_state=seed)\n")
 
     # MLP IC
     print("\n\n MLP Confidence Intervals \n\n")
