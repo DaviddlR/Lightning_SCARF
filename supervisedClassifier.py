@@ -24,6 +24,8 @@ from loss import FocalLoss
 
 import numpy as np
 
+import time
+
 
 
 # seed = 26
@@ -153,9 +155,20 @@ def printAUC(y_true, y_probs, num_classes):
 
 def trainXGB(x_train_processed, y_train, x_test_processed, y_test):
     xgb = XGBClassifier(n_estimators=100, learning_rate=0.1, max_depth=6, random_state=seed)
-    xgb.fit(x_train_processed, y_train)
 
+    start_time = time.time()
+    xgb.fit(x_train_processed, y_train)
+    end_time = time.time()
+    training_time = end_time - start_time
+    print(f"\n\n\n ---- XGB_Training time: {training_time} seconds")
+
+
+    start_time = time.time()
     y_pred_xgb = xgb.predict(x_test_processed)
+    end_time = time.time()
+    test_time = end_time - start_time
+    print(f"\n\n\n ---- XGB_Testing time: {test_time} seconds")
+
     probs = xgb.predict_proba(x_test_processed)
 
     report = classification_report(y_test, y_pred_xgb, output_dict=True)
@@ -169,9 +182,21 @@ def trainXGB(x_train_processed, y_train, x_test_processed, y_test):
 
 def trainRF(x_train_processed, y_train, x_test_processed, y_test):
     rf = RandomForestClassifier(n_estimators=100, random_state=seed)
-    rf.fit(x_train_processed, y_train)
 
+    start_time = time.time()
+    rf.fit(x_train_processed, y_train)
+    end_time = time.time()
+    training_time = end_time - start_time
+    print(f"\n\n\n ---- RF_Training time: {training_time} seconds")
+
+
+    start_time = time.time()
     y_pred_rf = rf.predict(x_test_processed)
+    end_time = time.time()
+    test_time = end_time - start_time
+    print(f"\n\n\n ---- RF_Testing time: {test_time} seconds")
+
+
     probs = rf.predict_proba(x_test_processed)
 
     report = classification_report(y_test, y_pred_rf, output_dict=True)
@@ -181,9 +206,19 @@ def trainRF(x_train_processed, y_train, x_test_processed, y_test):
 
 def trainSVM(x_train_processed, y_train, x_test_processed, y_test):
     svm = SVC(kernel='rbf', probability=True, random_state=seed)
-    svm.fit(x_train_processed, y_train)
 
+    start_time = time.time()
+    svm.fit(x_train_processed, y_train)
+    end_time = time.time()
+    training_time = end_time - start_time
+    print(f"\n\n\n ---- SVM_Training time: {training_time} seconds")
+    
+    start_time = time.time()
     y_pred_svm = svm.predict(x_test_processed)
+    end_time = time.time()
+    test_time = end_time - start_time
+    print(f"\n\n\n ---- SVM_Testing time: {test_time} seconds")
+
     probs = svm.predict_proba(x_test_processed)
 
     report = classification_report(y_test, y_pred_svm, output_dict=True)
@@ -193,9 +228,19 @@ def trainSVM(x_train_processed, y_train, x_test_processed, y_test):
 
 def trainKNN(x_train_processed, y_train, x_test_processed, y_test):
     knn = KNeighborsClassifier(n_neighbors=5)
-    knn.fit(x_train_processed, y_train)
 
+    start_time = time.time()
+    knn.fit(x_train_processed, y_train)
+    end_time = time.time()
+    training_time = end_time - start_time
+    print(f"\n\n\n ---- KNN_Training time: {training_time} seconds")
+
+    start_time = time.time()
     y_pred_knn = knn.predict(x_test_processed)
+    end_time = time.time()
+    test_time = end_time - start_time
+    print(f"\n\n\n ---- KNN_Testing time: {test_time} seconds")
+
     probs = knn.predict_proba(x_test_processed)
 
     report = classification_report(y_test, y_pred_knn, output_dict=True)
@@ -205,9 +250,19 @@ def trainKNN(x_train_processed, y_train, x_test_processed, y_test):
 
 def trainC45(x_train_processed, y_train, x_test_processed, y_test):
     c45 = DecisionTreeClassifier(random_state=seed)
-    c45.fit(x_train_processed, y_train)
 
+    start_time = time.time()
+    c45.fit(x_train_processed, y_train)
+    end_time = time.time()
+    training_time = end_time - start_time
+    print(f"\n\n\n ---- C45_Training time: {training_time} seconds")
+
+    start_time = time.time()
     y_pred_c45 = c45.predict(x_test_processed)
+    end_time = time.time()
+    test_time = end_time - start_time
+    print(f"\n\n\n ---- C45_Testing time: {test_time} seconds")
+
     probs = c45.predict_proba(x_test_processed)
 
     report = classification_report(y_test, y_pred_c45, output_dict=True)
@@ -318,10 +373,10 @@ if __name__ == "__main__":
     x_train_processed, y_train, x_val_processed, y_val, x_test_processed, y_test = readData(trainSet, testSet)
 
     # 30 different seeds
-    #seeds = [1492]
+    seeds = [1492]
     #seeds = [1,2,3,4,5]
     #seeds = [26, 42, 123, 2024, 999, 2023, 2022, 2021, 2020, 2019, 2018, 2017, 2016, 2015, 2014, 2013, 2012, 2011, 2010, 2009, 72, 71, 70, 69, 68, 67, 66, 65, 64, 63]
-    seeds = [26, 42, 123, 2024, 999, 2023, 2022, 2021, 2020, 2019]
+    #seeds = [26, 42, 123, 2024, 999, 2023, 2022, 2021, 2020, 2019]
     
     for index, seed in enumerate(seeds):
         L.seed_everything(seed, workers=True)
@@ -331,11 +386,11 @@ if __name__ == "__main__":
 
 
 
-        label_proportion = 0.01
+        label_proportion = 0.999
         x_train_small,_ , y_train_small, _ = train_test_split(x_train_processed, y_train, test_size=1-label_proportion, random_state=seed, stratify=y_train) 
         print("Small training set: ", x_train_small.shape, y_train_small.shape)
 
-        label_proportion = 0.01
+        label_proportion = 0.999 # 0.01 para 1% de labels
         x_val_small,_ , y_val_small, _ = train_test_split(x_val_processed, y_val, test_size=1-label_proportion, random_state=seed, stratify=y_val) 
         print("Small validation set: ", x_val_small.shape, y_val_small.shape)
 
@@ -380,11 +435,17 @@ if __name__ == "__main__":
 
 
         model = ClassificationHead(input_dim=186, dropout=0.0)
-        n_epochs = 50
+        n_epochs = 1#50
 
         #early_stopping_callback = EarlyStopping(monitor="cl_validation_loss", patience=3)
         trainer = L.Trainer(max_epochs=n_epochs, accelerator='gpu', logger=True, enable_progress_bar=True) #, callbacks=[early_stopping_callback])
+
+        start_time = time.time()
         trainer.fit(model, train_dataloader_embeddings, validation_dataloader_embeddings)
+        end_time = time.time()
+        training_time = end_time - start_time
+        print(f"\n\n\n ---- MLP_Training time: {training_time} seconds")
+
 
 
         classes = [0,1,2,3,4,5,6,7,8,9]
@@ -393,7 +454,12 @@ if __name__ == "__main__":
 
         #print("\n\n MLP")
 
+        start_time = time.time()
         outputs = trainer.predict(model, test_dataloader_embeddings)
+        end_time = time.time()
+        test_time = end_time - start_time
+        print(f"\n\n\n ---- MLP_classification time: {test_time} seconds")
+
         predictions = torch.cat([o["preds"] for o in outputs])
         probs = torch.cat([o["probs"] for o in outputs])
 
@@ -457,6 +523,12 @@ if __name__ == "__main__":
         RF_accuracies.append(RFReport['accuracy'])
         RF_macroavgs.append(RFReport['macro avg']['f1-score'])
         RF_weightedavgs.append(RFReport['weighted avg']['f1-score'])
+
+
+
+        a,b = trainC45(x_train_small, y_train_small, x_test_processed, y_test)
+        a,b = trainKNN(x_train_small, y_train_small, x_test_processed, y_test)
+        a,b = trainSVM(x_train_small, y_train_small, x_test_processed, y_test)
 
 
 

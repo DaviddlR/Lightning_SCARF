@@ -1,6 +1,6 @@
 # Network intrusion detection on the UNSW-NB15 dataset using Self-Supervised approaches
 
-This is the official implementation of the article *A Study on Self-Supervised Learning Objectives for Intrusion Detection*, for the 21th Conference of the Spanish Association for Artificial Intelligence (CAEPIA 2026). This repository also serves as an unnofficial implementation of the article *SCARF: Self-Supervised Contrastive Learning using Random Feature Corruption*, using Pytorch Lightning.
+This is the official implementation of the article *A Study on Self-Supervised Learning Objectives for Intrusion Detection*, for the 21th Conference of the Spanish Association for Artificial Intelligence (CAEPIA 2026). This repository also serves as an unofficial implementation of the article *SCARF: Self-Supervised Contrastive Learning using Random Feature Corruption*, using Pytorch Lightning.
 
 The project performs contrastive pre-training to generate robust embeddings from tabular data. It evaluates the embedding's performance by transferring this knowledge to multiple supervised classifiers under a data-scarce scenario.
 

@@ -26,6 +26,8 @@ from sklearn.svm import SVC
 from sklearn.ensemble import RandomForestClassifier
 from xgboost import XGBClassifier
 
+import time
+
 
 def printAUC(y_true, y_probs, num_classes):
     y_true_bin = label_binarize(y_true, classes=range(num_classes))
@@ -144,9 +146,10 @@ if __name__ == "__main__":
 
 
     # 30 seeds
+    seeds = [1]
     #seeds = [1492, 67]
     #seeds = [1,2,3,4,5]
-    seeds = [26, 42, 123, 2024, 999, 2023, 2022, 2021, 2020, 2019, 2018, 2017, 2016, 2015, 2014, 2013, 2012, 2011, 2010, 2009, 72, 71, 70, 69, 68, 67, 66, 65, 64, 63]
+    #seeds = [26, 42, 123, 2024, 999, 2023, 2022, 2021, 2020, 2019, 2018, 2017, 2016, 2015, 2014, 2013, 2012, 2011, 2010, 2009, 72, 71, 70, 69, 68, 67, 66, 65, 64, 63]
     #seeds = [26, 42, 123, 2024, 999, 2023, 2022, 2021, 2020, 2019]
     for seed in seeds:
         
@@ -188,7 +191,16 @@ if __name__ == "__main__":
         #early_stopping_callback = EarlyStopping(monitor="validation_loss", patience=3, mode="min")
         n_epochs = 150  
         trainer = L.Trainer(max_epochs=n_epochs, accelerator='gpu', logger=True, enable_progress_bar=True) #callbacks=[early_stopping_callback])
+
+        start_time = time.time()
+
         trainer.fit(pretrained_model, train_loader, validation_loader)
+
+        end_time = time.time()
+        training_time = end_time - start_time
+
+        print(f"\n\n\n ---- Training time: {training_time} seconds")
+
 
 
         print("\n Extracting features and training classification head...")
@@ -214,8 +226,14 @@ if __name__ == "__main__":
             
 
         # Classification on top of the embeddings
+        start_time = time.time()
         
         train_embeddings, train_labels = extractor.extractFeatures(train_loader, labels=True)
+
+        end_time = time.time()
+        extraction_time = end_time - start_time
+        print(f"\n\n\n ---- Feature extraction time: {extraction_time} seconds")
+
         validation_embeddings, validation_labels = extractor.extractFeatures(validation_loader, labels=True)
         test_embeddings, test_labels = extractor.extractFeatures(test_loader, labels=True)
 
@@ -262,8 +280,14 @@ if __name__ == "__main__":
         #early_stopping_callback = EarlyStopping(monitor="cl_validation_loss", patience=3)
         #trainer = L.Trainer(max_epochs=200, accelerator='gpu', logger=True, enable_progress_bar=True, callbacks=[early_stopping_callback])
         trainer = L.Trainer(max_epochs=50, accelerator='gpu', logger=True, enable_progress_bar=True)
+
+        start_time = time.time()
+
         trainer.fit(classification_head, train_dataloader_embeddings, validation_dataloader_embeddings)
 
+        end_time = time.time()
+        training_time = end_time - start_time
+        print(f"\n\n\n ---- MLP_Training time: {training_time} seconds")
         
 
 
@@ -271,7 +295,14 @@ if __name__ == "__main__":
 
         #-------------- TEST --------------#
         #trainer.test(classification_head, test_dataloader_embeddings)
+        start_time = time.time()
+        
         outputs = trainer.predict(classification_head, test_dataloader_embeddings)
+        
+        end_time = time.time()
+        test_time = end_time - start_time
+        print(f"\n\n\n ---- MLP_classification time: {test_time} seconds")
+
         predictions = torch.cat([o["preds"] for o in outputs])
         probs = torch.cat([o["probs"] for o in outputs])
 
@@ -302,10 +333,23 @@ if __name__ == "__main__":
 
         # XGBOOST CLASSIFICATION ON TOP OF EMBEDDINGS
         xgb = XGBClassifier(n_estimators=100, learning_rate=0.1, max_depth=6, random_state=seed)
-        xgb.fit(train_embeddings, train_labels)
 
+        start_time = time.time()
+        xgb.fit(train_embeddings, train_labels)
+        end_time = time.time()
+        xgb_training_time = end_time - start_time
+        print(f"\n\n\n ---- XGBoost Training time: {xgb_training_time} seconds")
+
+
+        start_time = time.time()
         y_pred_xgb = xgb.predict(test_embeddings)
+        end_time = time.time()
+        xgb_test_time = end_time - start_time
+        print(f"\n\n\n ---- XGBoost Testing time: {xgb_test_time} seconds")
+
         xgb_probs = xgb.predict_proba(test_embeddings)
+
+
         print("\n\n---------- XGBoost Classification Report ----------")
 
         # Save XGBoost results
@@ -328,9 +372,20 @@ if __name__ == "__main__":
 
         # Random Forest CLASSIFICATION ON TOP OF EMBEDDINGS
         rf = RandomForestClassifier(n_estimators=100, random_state=seed)
-        rf.fit(train_embeddings, train_labels)
 
+        start_time = time.time()
+        rf.fit(train_embeddings, train_labels)
+        end_time = time.time()
+        rf_training_time = end_time - start_time
+        print(f"\n\n\n ---- Random Forest Training time: {rf_training_time} seconds")
+
+        start_time = time.time()
         y_pred_rf = rf.predict(test_embeddings)
+        end_time = time.time()
+        rf_test_time = end_time - start_time
+        print(f"\n\n\n ---- Random Forest Testing time: {rf_test_time} seconds")
+
+        
         rf_probs = rf.predict_proba(test_embeddings)
         print("\n\n---------- Random Forest Classification Report ----------")
 
@@ -354,8 +409,18 @@ if __name__ == "__main__":
         # SVM CLASSIFICATION ON TOP OF EMBEDDINGS
         # from sklearn.svm import SVC
         svm = SVC(probability=True, random_state=seed)
+        start_time = time.time()
         svm.fit(train_embeddings, train_labels)
+        end_time = time.time()
+        svm_training_time = end_time - start_time
+        print(f"\n\n\n ---- SVM Training time: {svm_training_time} seconds")
+
+        start_time = time.time()
         y_pred_svm = svm.predict(test_embeddings)
+        end_time = time.time()
+        svm_test_time = end_time - start_time
+        print(f"\n\n\n ---- SVM Testing time: {svm_test_time} seconds")
+
         svm_probs = svm.predict_proba(test_embeddings)
         print("\n\n---------- SVM Classification Report ----------")
 
@@ -376,8 +441,19 @@ if __name__ == "__main__":
 
         # KNN CLASSIFICATION ON TOP OF EMBEDDINGS
         knn = KNeighborsClassifier()
+        start_time = time.time()
         knn.fit(train_embeddings, train_labels)
+        end_time = time.time()
+        knn_training_time = end_time - start_time
+        print(f"\n\n\n ---- KNN Training time: {knn_training_time} seconds")
+
+        start_time = time.time()
         y_pred_knn = knn.predict(test_embeddings)
+        end_time = time.time()
+        knn_test_time = end_time - start_time
+        print(f"\n\n\n ---- KNN Testing time: {knn_test_time} seconds")
+
+
         knn_probs = knn.predict_proba(test_embeddings)
         print("\n\n---------- KNN Classification Report ----------")
 
@@ -397,8 +473,20 @@ if __name__ == "__main__":
 
         # C45 CLASSIFICATION ON TOP OF EMBEDDINGS
         c45 = DecisionTreeClassifier(random_state=seed)
+        start_time = time.time()
         c45.fit(train_embeddings, train_labels)
+        end_time = time.time()
+        c45_training_time = end_time - start_time
+        print(f"\n\n\n ---- C45 Training time: {c45_training_time} seconds")
+
+
+        start_time = time.time()
         y_pred_c45 = c45.predict(test_embeddings)
+        end_time = time.time()
+        c45_test_time = end_time - start_time
+        print(f"\n\n\n ---- C45 Testing time: {c45_test_time} seconds")
+        
+        
         c45_probs = c45.predict_proba(test_embeddings)
         print("\n\n---------- C45 Classification Report ----------")
 
